@@ -286,10 +286,10 @@ def main():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     screen_surf = pygame.transform.smoothscale(pygame.image.load("Assets/chessboard_grey.png").convert_alpha(), (WIDTH, HEIGHT))
 
-    # create a list containing piece instances
+# create a list containing piece instances
     create_pieces()
 
-    # add piece instances to a group
+    # add piece instances to a groupad
     piece_group = pygame.sprite.Group()
     for piece in ALIVE_PIECES:
         piece_group.add(piece)
