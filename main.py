@@ -49,6 +49,7 @@ for i in range(len(BOARD)):  # 8*8
 ALIVE_PIECES = []  # list of alive piece objects
 SELECTED_PIECE = None  # selected piece instance
 SELECTED_PIECE_ORICOORD = (0, 0)  # original position of drag piece
+TURN = "w"
 
 
 class Piece(pygame.sprite.Sprite):
@@ -94,10 +95,11 @@ class Piece(pygame.sprite.Sprite):
 
         # check no piece already in that spot to avoid overlapping
         pieces_pos = [piece.rect.center for piece in ALIVE_PIECES]
-        if SELECTED_PIECE.isValidMove(dest_xcoord, dest_ycoord) and (VALID_POS[dest_ycoord][dest_xcoord] not in pieces_pos or SELECTED_PIECE.allowCapture(dest_xcoord, dest_ycoord)):
-            # if move is valid, and spot is empty or capture is allowed
-            SELECTED_PIECE.coord = (dest_xcoord, dest_ycoord)
-            return (dest_xcoord, dest_ycoord)
+        if SELECTED_PIECE.side == TURN: # make sure is your turn
+            if SELECTED_PIECE.isValidMove(dest_xcoord, dest_ycoord) and (VALID_POS[dest_ycoord][dest_xcoord] not in pieces_pos or SELECTED_PIECE.allowCapture(dest_xcoord, dest_ycoord)):
+                # if move is valid, and spot is empty or capture is allowed
+                SELECTED_PIECE.coord = (dest_xcoord, dest_ycoord)
+                return (dest_xcoord, dest_ycoord)
         else:
             # not valid move, or allied piece is captured
             return SELECTED_PIECE_ORICOORD
@@ -242,7 +244,7 @@ class Piece(pygame.sprite.Sprite):
 
     def haveObstacle(self, dest_xcoord, dest_ycoord):
         # check for queen, bishop and rook 
-        if self.pieceType == "Rook":
+        def rookHaveObst():
             dest_coord = (dest_xcoord, dest_ycoord)
             index = 0 # x is changing index -> 0, y is changing index -> 1
             if dest_xcoord == self.coord[0]:
@@ -250,22 +252,55 @@ class Piece(pygame.sprite.Sprite):
             else: 
                 index = 0 # x coord is changing
             increment = 1 if self.coord[index] < dest_coord[index] else -1
-            print(self.coord[index], dest_coord[index], increment)
             for i in range(self.coord[index], dest_coord[index], increment):
                 obst_ccoord = (self.coord[0], i) if index == 1 else (i, self.coord[1])
                 for piece in ALIVE_PIECES:
                     if piece.coord == (obst_ccoord) and piece != SELECTED_PIECE:
+                        print("have obstacle")
                         return True
 
             return False
 
-        if self.pieceType == "Bishop":
-            pass
-            
+        def bishopHaveObst():
+            x_incr = 1 if self.coord[0] < dest_xcoord else -1 # x increment
+            y_incr = 1 if self.coord[1] < dest_ycoord else -1 # y increment
+            x = self.coord[0]
+            y = self.coord[1]
 
-    def enPassant():
+            if (x, y) == (dest_xcoord, dest_ycoord): return False
+
+            while True:
+                x += x_incr
+                y += y_incr
+                if (x, y) == (dest_xcoord, dest_ycoord):
+                    return False
+                for piece in ALIVE_PIECES:
+                    if piece.coord == (x, y) and piece != SELECTED_PIECE:
+                        print("have obstacle")
+                        return True
+
+        if self.pieceType == "Rook":
+            return rookHaveObst()
+
+        if self.pieceType == "Bishop":
+            return bishopHaveObst()
+
+        if self.pieceType == "Queen":
+            if dest_xcoord == self.coord[0] or dest_ycoord == self.coord[1]:
+                return rookHaveObst() # queen using rook movement
+            else:
+                return bishopHaveObst() # queen using bishop movement
+
+
+
+    def canEnPassant():
         pass
 
+    def canCastle():
+        # if being checked cannot castling
+        # rook and king must be unmoved
+        pass
+    
 
 def create_pieces():
     """Loop through the BOARD and create a instance for each piece encounter and append ALIVE_PIECES"""
@@ -284,9 +319,9 @@ def main():
 
     # initialize screen
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    screen_surf = pygame.transform.smoothscale(pygame.image.load("Assets/chessboard_grey.png").convert_alpha(), (WIDTH, HEIGHT))
+    screen_surf = pygame.transform.smoothscale(pygame.image.load("Assets/chessboard_blue.png").convert_alpha(), (WIDTH, HEIGHT))
 
-# create a list containing piece instances
+    # create a list containing piece instances
     create_pieces()
 
     # add piece instances to a groupad
@@ -296,6 +331,7 @@ def main():
 
     global SELECTED_PIECE  # allow main function to modify the global variable
     global SELECTED_PIECE_ORICOORD
+    global TURN
     # game loop
     while True:
         for event in pygame.event.get():
@@ -317,6 +353,7 @@ def main():
 
                     if coord != SELECTED_PIECE_ORICOORD:  # make sure the piece made a move
                         SELECTED_PIECE.movedStep += 1
+                        TURN = "b" if TURN == "w" else "w"
 
                 SELECTED_PIECE = None
 
