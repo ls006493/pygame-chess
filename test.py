@@ -27,7 +27,5 @@
 # b = set([3,5,9,9])
 # print(list(a-b))
 
-b = (3,4)
-c = [(9,7), (3,4), (77,77)]
-c.remove(b)
-print(c)
+a=b=c=d=2
+print(a,b,c,d)

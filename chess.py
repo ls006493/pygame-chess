@@ -51,11 +51,9 @@ class Piece(pygame.sprite.Sprite):
     def get_viableMove(self):
         """take in self instance, return a list of viable moves"""
         """self instance-> a list of tuples contaning coordinates """
-        # TODO
-
+        
         if self.pieceType == "r":
             return self.get_viableMove_rook()
-        return [(3, 3), (3, 4), (3, 5)]
         if self.pieceType == "n":
             return self.get_viableMove_knight()
         if self.pieceType == "b":
@@ -78,10 +76,10 @@ class Piece(pygame.sprite.Sprite):
             if tuple(up_obst) in occupied_coord or up_obst[1] <= 0:
                 break
             up_obst[1] -= 1
-            viableMove.append(tuple(up_obst))
+            viableMove.append(tuple(up_obst)) # append viable move
 
         while True:
-            if tuple(down_obst) in occupied_coord or down_obst[1] >= (BOARD_LENGTH - 1):
+            if tuple(down_obst) in occupied_coord or down_obst[1] >= 7:
                 break
             down_obst[1] += 1
             viableMove.append(tuple(down_obst))
@@ -93,7 +91,7 @@ class Piece(pygame.sprite.Sprite):
             viableMove.append(tuple(left_obst))
 
         while True:
-            if tuple(right_obst) in occupied_coord or right_obst[0] >= (BOARD_LENGTH - 1):
+            if tuple(right_obst) in occupied_coord or right_obst[0] >= 7:
                 break
             right_obst[0] += 1
             viableMove.append(tuple(right_obst))
@@ -104,20 +102,142 @@ class Piece(pygame.sprite.Sprite):
 
         return viableMove
 
-    def update_piece(self):
+    def get_viableMove_knight(self):
+        
+        a = (self.coord[0] - 1, self.coord[1] - 2)
+        b = (self.coord[0] + 1, self.coord[1] - 2)
+        c = (self.coord[0] + 2, self.coord[1] + 1)
+        d = (self.coord[0] + 2, self.coord[1] - 1)
+        e = (self.coord[0] + 1, self.coord[1] + 2)
+        f = (self.coord[0] - 1, self.coord[1] + 2)
+        g = (self.coord[0] - 2, self.coord[1] + 1)
+        h = (self.coord[0] - 2, self.coord[1] - 1)
+
+        viableMove = [a, b, c, d, e, f, g, h]
+        
+        # delete out of bound move
+        for move in viableMove[:]: # make a copy of viableMove list to avoid unexpected behaviour
+            if move[0] < 0 or move[0] > 7 or move[1] < 0 or move[1] > 7: # 7 is max coord
+                viableMove.remove(move)
+
+        # delete move that will capture allies piece
+        allies_coord = [piece.coord for piece in ALIVE_PIECES if (piece.side == self.side and piece.coord != self.coord)]
+        viableMove = list(set(viableMove) - set(allies_coord))
+        
+        return viableMove
+
+    def get_viableMove_bishop(self):
+        occupied_coord = [piece.coord for piece in ALIVE_PIECES if piece.coord != self.coord]
+        
+        viableMove = []
+        # tuple is not mutable, use list instead
+        topleft_obst, topright_obst, botleft_obst, botright_obst = list(self.coord), list(self.coord), list(self.coord), list(self.coord)
+        # finding obstacle's coordinates
+        while True:
+            if tuple(topleft_obst) in occupied_coord or topleft_obst[0] <= 0 or topleft_obst[1] <= 0:
+                break
+            topleft_obst[0] -= 1
+            topleft_obst[1] -= 1
+            viableMove.append(tuple(topleft_obst)) #append viable move
+
+        while True:
+            if tuple(topright_obst) in occupied_coord or topright_obst[0] >= 7 or topright_obst[1] <= 0:
+                break
+            topright_obst[0] += 1
+            topright_obst[1] -= 1
+
+            viableMove.append(tuple(topright_obst))
+
+        while True:
+            if tuple(botleft_obst) in occupied_coord or botleft_obst[0] <= 0 or botleft_obst[1] >= 7:
+                break
+            botleft_obst[0] -= 1
+            botleft_obst[1] += 1
+
+            viableMove.append(tuple(botleft_obst))
+
+        while True:
+            if tuple(botright_obst) in occupied_coord or botright_obst[0] >= 7 or botright_obst[1] >= 7:
+                break
+            botright_obst[0] += 1
+            botright_obst[1] += 1
+            viableMove.append(tuple(botright_obst))
+
+        # delete the intersection of two set, remove all the viableMove that will capture allies piece
+        allies_coord = [piece.coord for piece in ALIVE_PIECES if (piece.side == self.side and piece.coord != self.coord)]
+        viableMove = list(set(viableMove) - set(allies_coord))
+
+        return viableMove
+
+    def get_viableMove_queen(self):
+        # queen's viable moves is just rook plus bishop
+        return self.get_viableMove_bishop() + self.get_viableMove_rook()
+
+    def get_viableMove_king(self):
+        a = (self.coord[0] - 1, self.coord[1] - 1) #top left, cw
+        b = (self.coord[0]    , self.coord[1] - 1) #top
+        c = (self.coord[0] + 1, self.coord[1] - 1) #topright
+        d = (self.coord[0] + 1, self.coord[1]    ) #right
+        e = (self.coord[0] + 1, self.coord[1] + 1) #botright
+        f = (self.coord[0]    , self.coord[1] + 1) #bot
+        g = (self.coord[0] - 1, self.coord[1] + 1) #botleft
+        h = (self.coord[0] - 1, self.coord[1]    ) #left
+
+        viableMove = [a, b, c, d, e, f, g, h]
+        # delete out of bound move
+        for move in viableMove[:]: # make a copy of viableMove list to avoid unexpected behaviour
+            if move[0] < 0 or move[0] > 7 or move[1] < 0 or move[1] > 7: # 7 is max coord
+                viableMove.remove(move)
+
+        # delete move that will capture allies piece
+        allies_coord = [piece.coord for piece in ALIVE_PIECES if (piece.side == self.side and piece.coord != self.coord)]
+        viableMove = list(set(viableMove) - set(allies_coord))
+        
+        return viableMove
+
+    def get_viableMove_pawn(self):
+        if self.side == "b":
+            if self.movedStep == 0:
+                viableMove = [(self.coord[0], self.coord[1] + 1), (self.coord[0], self.coord[1] + 2)]
+                return viableMove
+            elif self.coord[1] != 7: # movedStep > 0 and piece not in other end of board
+                viableMove = [(self.coord[0], self.coord[1] + 1)]
+                return viableMove
+            else: return []
+
+        else: # side == "w"
+            if self.movedStep == 0:
+                viableMove = [(self.coord[0], self.coord[1] - 1), (self.coord[0], self.coord[1] - 2)]
+                return viableMove
+            elif self.coord[1] != 0: # movedstep > 0 and piece not in other end of board
+                viableMove = [(self.coord[0], self.coord[1] - 1)]
+                return viableMove
+            else: return []
+                
+    def update_piece(self, ori_coord):
         """take in self instance, update all the attributes if a move is made, no return"""
         dest_coord = get_closestCoord(pygame.mouse.get_pos())
-        # update viable move no matter moved or not, show hint dots correctly
+        # update viable move no matter moved or not to show hint dots correctly
         self.viableMove = self.get_viableMove()
+
         # check if the piece moved or not
         if self.coord == dest_coord:
             # reset the piece's rect position if no move is made
             self.rect.center = coord2Pos(dest_coord)
             return
-        self.coord = dest_coord
-        self.rect.center = coord2Pos(dest_coord)
-        self.movedStep += 1
 
+        # check move is in list of viableMove:
+        elif dest_coord not in self.viableMove:
+            self.coord = ori_coord
+            self.rect.center = coord2Pos(ori_coord)
+            return
+
+        # valid move to other position
+        else:
+            self.coord = dest_coord
+            self.rect.center = coord2Pos(dest_coord)
+            self.movedStep += 1
+    
 
 def coord2Pos(coord):
     """convert coordinate to pixel position e.g.(1,2) -> (150,250)"""
@@ -201,26 +321,23 @@ def main():
                 exit()
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                # for piece in ALIVE_PIECES:
-                #     if piece.coord == (7,7):
-                #         print(piece.viableMove)
-
                 mouseCoord = get_closestCoord(pygame.mouse.get_pos())
                 # get the selected piece instance if it exists
                 SLT_PIECE = get_selected_piece(mouseCoord)
-                # record the selected piece coordinate if it exists
 
+                # record the selected piece coordinate if it exists
                 if SLT_PIECE is not None:
-                    SLT_PIECE.update_piece()
+                    SLT_PIECE.update_piece(SLT_PIECE_ORICOORD)
                     SLT_PIECE_ORICOORD = mouseCoord
+                    # print("mousedown", str(SLT_PIECE_ORICOORD))
                 else:
                     SLT_PIECE_ORICOORD = None
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if SLT_PIECE is not None:
-                    # update the piece attributes after a piece is selected, dragged then dropped
-                    SLT_PIECE.update_piece()
-                    print(SLT_PIECE.side, SLT_PIECE.pieceType, SLT_PIECE.coord, SLT_PIECE.rect, SLT_PIECE.movedStep, SLT_PIECE_ORICOORD)
+                    # update the piece attributes after a piece is dropped
+                    # print("mouseup", str(SLT_PIECE.ORICOORD))
+                    SLT_PIECE.update_piece(SLT_PIECE_ORICOORD)
                 SLT_PIECE = None  # reset
 
         # drag the selected piece
