@@ -234,6 +234,21 @@ class Piece(pygame.sprite.Sprite):
 
         # valid move to other position
         else:
+            #select dest object
+            captureMoveCoord = [move for move in self.viableMove if move in [piece.coord for piece in ALIVE_PIECES]]
+            if dest_coord in captureMoveCoord:
+
+                dest_piece = None
+                for piece in ALIVE_PIECES:
+                    if piece.coord == dest_coord:
+                        dest_piece = piece
+                        break
+                
+                ALIVE_PIECES.remove(dest_piece)
+                dest_piece.kill()
+                del dest_piece
+                
+
             self.coord = dest_coord
             self.rect.center = coord2Pos(dest_coord)
             self.movedStep += 1
