@@ -32,7 +32,6 @@ CHESSBOARD_INIT = [
 ALIVE_PIECES = []  # list of alive piece instances
 PIECE_GROUP = pygame.sprite.Group()  # piece sprite group
 
-
 class Piece(pygame.sprite.Sprite):
 
     def __init__(self, side, pieceType, coord):
@@ -344,14 +343,12 @@ def main():
                 if SLT_PIECE is not None:
                     SLT_PIECE.update_piece(SLT_PIECE_ORICOORD)
                     SLT_PIECE_ORICOORD = mouseCoord
-                    # print("mousedown", str(SLT_PIECE_ORICOORD))
                 else:
                     SLT_PIECE_ORICOORD = None
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if SLT_PIECE is not None:
                     # update the piece attributes after a piece is dropped
-                    # print("mouseup", str(SLT_PIECE.ORICOORD))
                     SLT_PIECE.update_piece(SLT_PIECE_ORICOORD)
                 SLT_PIECE = None  # reset
 
