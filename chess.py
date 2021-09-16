@@ -213,6 +213,9 @@ class Piece(pygame.sprite.Sprite):
                 viableMove = [(self.coord[0], self.coord[1] - 1)]
                 return viableMove
             else: return []
+
+        #En passant
+        #if 
     
 
     def update_piece(self, ori_coord):
@@ -311,10 +314,13 @@ def addPieces2Group():
 def draw_hint_dots(surf, slt_piece):
     """Draw hint dots on viable move position of selected piece"""
     # check selected piece exists
-    if slt_piece is None:
-        return
-    for coord in slt_piece.viableMove:
-        pygame.draw.circle(surf, (150, 150, 150), coord2Pos(coord), 30)
+    if slt_piece is not None:
+        
+        for coord in slt_piece.viableMove:
+            radius = 30
+            circle = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+            pygame.draw.circle(circle, (150, 150, 150, 128), coord2Pos(coord), radius)
+            surf.blit(circle, (500, 500))
 
 
 def main():
@@ -364,7 +370,14 @@ def main():
 
         # drawing, wrong order may cause some surfaces being blocked
         window.blit(chessboard, (0, 0))
-        draw_hint_dots(window, SLT_PIECE)  # draw hint dots
+
+        if SLT_PIECE is not None:
+            for coord in SLT_PIECE.viableMove:
+                radius = 25
+                circle = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+                pygame.draw.circle(circle, (150, 150, 150, 128), (radius, radius), radius)
+                window.blit(circle, (coord2Pos(coord)[0]-PIECE_WIDTH/4, coord2Pos(coord)[1]-PIECE_HEIGHT/4))
+
         PIECE_GROUP.draw(window)
         pygame.display.update()
         clock.tick(FPS)
