@@ -31,6 +31,7 @@ CHESSBOARD_INIT = [
 # Global variables
 ALIVE_PIECES = []  # list of alive piece instances
 PIECE_GROUP = pygame.sprite.Group()  # piece sprite group
+TURN = "w"
 
 class Piece(pygame.sprite.Sprite):
 
@@ -212,9 +213,11 @@ class Piece(pygame.sprite.Sprite):
                 viableMove = [(self.coord[0], self.coord[1] - 1)]
                 return viableMove
             else: return []
-                
+    
+
     def update_piece(self, ori_coord):
         """take in self instance, update all the attributes if a move is made, no return"""
+        global TURN
         dest_coord = get_closestCoord(pygame.mouse.get_pos())
         # update viable move no matter moved or not to show hint dots correctly
         self.viableMove = self.get_viableMove()
@@ -226,13 +229,16 @@ class Piece(pygame.sprite.Sprite):
             return
 
         # check move is in list of viableMove:
-        elif dest_coord not in self.viableMove:
+        elif dest_coord not in self.viableMove or self.side != TURN:
             self.coord = ori_coord
             self.rect.center = coord2Pos(ori_coord)
             return
 
-        # valid move to other position
+        # valid move
         else:
+            # Change turn after a valid move
+            TURN = "b" if TURN == "w" else "w"
+            print(TURN)
             #select dest object
             captureMoveCoord = [move for move in self.viableMove if move in [piece.coord for piece in ALIVE_PIECES]]
             if dest_coord in captureMoveCoord:
