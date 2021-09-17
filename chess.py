@@ -211,8 +211,8 @@ class Piece(pygame.sprite.Sprite):
             viableMove = []
             alive_pieces = [piece.coord for piece in ALIVE_PIECES]
             enermy_pieces = [piece.coord for piece in ALIVE_PIECES if piece.side == "w"]
+            
             # diagonal capture
-
             if (self.coord[0] - 1, self.coord[1] + 1) in enermy_pieces:
                 viableMove.append((self.coord[0] - 1, self.coord[1] + 1))
             if (self.coord[0] + 1, self.coord[1] + 1) in enermy_pieces:
@@ -225,22 +225,6 @@ class Piece(pygame.sprite.Sprite):
             # regular move
             if self.coord[1] != 7 and (self.coord[0], self.coord[1] + 1) not in alive_pieces:
                 viableMove.append((self.coord[0], self.coord[1] + 1))
-
-            # En passant
-            enermy_pawn_left = next((piece for piece in ALIVE_PIECES if piece.coord == (self.coord[0] - 1, self.coord[1])
-                                    and piece.side == "w" and piece.pieceType == "p"), None)
-            if enermy_pawn_left is not None:
-                if enermy_pawn_left.movedStep == 1 and enermy_pawn_left.coord[1] == 4:
-                    viableMove.append((self.coord[0] - 1, self.coord[1] + 1))
-       
-
-            enermy_pawn_right = next((piece for piece in ALIVE_PIECES if piece.coord == (self.coord[0] + 1, self.coord[1])
-                                    and piece.side == "w" and piece.pieceType == "p"), None)
-            if enermy_pawn_right is not None:
-                if enermy_pawn_right.movedStep == 1 and enermy_pawn_right.coord[1] == 4:
-                    viableMove.append((self.coord[0] + 1, self.coord[1] + 1))
-               
-                
 
             return viableMove
 
@@ -262,21 +246,6 @@ class Piece(pygame.sprite.Sprite):
             # regular move
             if self.coord[1] != 0 and (self.coord[0], self.coord[1] - 1) not in alive_pieces:
                 viableMove.append((self.coord[0], self.coord[1] - 1))
-
-            # En passant
-            enermy_pawn_left = next((piece for piece in ALIVE_PIECES if piece.coord == (self.coord[0] - 1, self.coord[1])
-                                    and piece.side == "b" and piece.pieceType == "p"), None)
-            if enermy_pawn_left is not None:
-                if enermy_pawn_left.movedStep == 1 and enermy_pawn_left.coord[1] == 3:
-                    viableMove.append((self.coord[0] - 1, self.coord[1] - 1))
-            
-
-            enermy_pawn_right = next((piece for piece in ALIVE_PIECES if piece.coord == (self.coord[0] + 1, self.coord[1])
-                                    and piece.side == "b" and piece.pieceType == "p"), None)
-            if enermy_pawn_right is not None:
-                if enermy_pawn_right.movedStep == 1 and enermy_pawn_right.coord[1] == 3:
-                    viableMove.append((self.coord[0] + 1, self.coord[1] - 1))
-           
 
             return viableMove
 
@@ -303,20 +272,6 @@ class Piece(pygame.sprite.Sprite):
         else:
             # capture
             dest_piece = next((piece for piece in ALIVE_PIECES if piece.coord == dest_coord), None)
-            if dest_piece is not None:
-                dest_piece.kill()
-                del dest_piece
-
-            # en passant
-            if TURN == "w":
-                ep_coord = (dest_coord[0], dest_coord[1] + 1)
-                dest_piece = next((piece for piece in ALIVE_PIECES if piece.coord == ep_coord and piece.side == "b" \
-                            and piece.pieceType == "p"), None)
-            else:
-                ep_coord = (dest_coord[0], dest_coord[1] - 1)
-                dest_piece = next((piece for piece in ALIVE_PIECES if piece.coord == ep_coord and piece.side == "w" \
-                            and piece.pieceType == "p"), None)
-
             if dest_piece is not None:
                 ALIVE_PIECES.remove(dest_piece)
                 dest_piece.kill()
@@ -464,7 +419,7 @@ def main():
         restartImage = font.render("Restart", True, "Black")
         restartRect = restartImage.get_rect(topleft = (WIDTH + UI_WIDTH//2 - 70, HEIGHT - 200))
         window.blit(restartImage, (WIDTH + UI_WIDTH//2 - 70, HEIGHT - 200))
-        print(ALIVE_PIECES)
+        print(len(ALIVE_PIECES))
         PIECE_GROUP.draw(window)
         pygame.display.update()
         clock.tick(FPS)
