@@ -18,7 +18,7 @@ PIECE_WIDTH, PIECE_HEIGHT = 100, 100
 BOARD_LENGTH = 8
 FPS = 60
 
-CHESSBOARD_INIT = [
+CHESSBOARD_INIT3 = [
     ["br", "bn", "bb", "bq", "bk", "bb", "bn", "br"],
     ["bp", "bp", "bp", "bp", "bp", "bp", "bp", "bp"],
     ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
@@ -27,6 +27,17 @@ CHESSBOARD_INIT = [
     ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
     ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"],
     ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]
+]
+
+CHESSBOARD_INIT = [
+    ["br",  "o",  "o",  "o",  "bk",  "o",  "o",  "br"],
+    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
+    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
+    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
+    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
+    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
+    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
+    ["wr",  "o",  "o",  "o",  "wk",  "o",  "o",  "wr"]
 ]
 
 # Global variables
