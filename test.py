@@ -26,6 +26,7 @@
 # a = set([1,2,3,4,5,6,7])
 # b = set([3,5,9,9])
 # print(list(a-b))
-
-a=b=c=d=2
-print(a,b,c,d)
+x = [(1,2),(3,4)]
+y = [(5,6),(6,8),(1,2)]
+if x not in y:
+    print("no")

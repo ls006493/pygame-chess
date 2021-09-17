@@ -16,7 +16,7 @@ WIDTH, HEIGHT = 800, 800
 UI_WIDTH = 400
 PIECE_WIDTH, PIECE_HEIGHT = 100, 100
 BOARD_LENGTH = 8
-FPS = 120
+FPS = 60
 
 CHESSBOARD_INIT = [
     ["br", "bn", "bb", "bq", "bk", "bb", "bn", "br"],
@@ -30,9 +30,13 @@ CHESSBOARD_INIT = [
 ]
 
 # Global variables
+INTRO = True
 ALIVE_PIECES = []  # list of alive piece instances
 PIECE_GROUP = pygame.sprite.Group()  # piece sprite group
 TURN = "w"
+RESTART = False
+RESTART_TIME = 0
+CHECKED = False
 
 
 class Piece(pygame.sprite.Sprite):
@@ -50,7 +54,7 @@ class Piece(pygame.sprite.Sprite):
         self.viableMove = self.get_viableMove()  # [(0,0), (1,1), (4,7), (7,7), ...]
         self.rect = self.image.get_rect(center=coord2Pos(coord))
 
-    def check_equal(self, other): 
+    def check_equal(self, other):
         if not isinstance(other, Piece):
             # don't attempt to compare against unrelated types
             return NotImplemented
@@ -211,7 +215,7 @@ class Piece(pygame.sprite.Sprite):
             viableMove = []
             alive_pieces = [piece.coord for piece in ALIVE_PIECES]
             enermy_pieces = [piece.coord for piece in ALIVE_PIECES if piece.side == "w"]
-            
+
             # diagonal capture
             if (self.coord[0] - 1, self.coord[1] + 1) in enermy_pieces:
                 viableMove.append((self.coord[0] - 1, self.coord[1] + 1))
@@ -219,7 +223,7 @@ class Piece(pygame.sprite.Sprite):
                 viableMove.append((self.coord[0] + 1, self.coord[1] + 1))
 
             # first move
-            if self.movedStep == 0 and (self.coord[0], self.coord[1] + 2) not in alive_pieces:
+            if self.movedStep == 0 and (self.coord[0], self.coord[1] + 1) not in alive_pieces and (self.coord[0], self.coord[1] + 2) not in alive_pieces:
                 viableMove.append((self.coord[0], self.coord[1] + 2))
 
             # regular move
@@ -240,7 +244,7 @@ class Piece(pygame.sprite.Sprite):
                 viableMove.append((self.coord[0] + 1, self.coord[1] - 1))
 
             # first move
-            if self.movedStep == 0 and (self.coord[0], self.coord[1] - 2) not in alive_pieces:
+            if self.movedStep == 0 and (self.coord[0], self.coord[1] - 1) not in alive_pieces and (self.coord[0], self.coord[1] - 2) not in alive_pieces:
                 viableMove.append((self.coord[0], self.coord[1] - 2))
 
             # regular move
@@ -249,9 +253,26 @@ class Piece(pygame.sprite.Sprite):
 
             return viableMove
 
-    def update_piece(self, ori_coord):
+    def isPawnPromotion(self, dest_coord):
+        if self.pieceType == "p":
+            if dest_coord[1] == 0 and self.side == "w":
+                return True
+            if dest_coord[1] == 7 and self.side == "b":
+                return True
+        return False
+
+    def pawnPromote(self):
+        self.pieceType = "q"
+        if self.side == "w":
+            self.image = pygame.transform.smoothscale(pygame.image.load("Assets/piece/wq.png").convert_alpha(), (PIECE_WIDTH, PIECE_HEIGHT))
+        else:
+            self.image = pygame.transform.smoothscale(pygame.image.load("Assets/piece/bq.png").convert_alpha(), (PIECE_WIDTH, PIECE_HEIGHT))
+        self.rect = self.image.get_rect(center=coord2Pos(self.coord))
+
+    def update_piece(self, ori_coord, move_soundeffect):
         """take in self instance, update all the attributes if a move is made, no return"""
         global TURN
+        global CHECKED
         dest_coord = get_closestCoord(pygame.mouse.get_pos())
         # update viable move no matter moved or not to show hint dots correctly
         self.viableMove = self.get_viableMove()
@@ -270,6 +291,10 @@ class Piece(pygame.sprite.Sprite):
 
         # valid move
         else:
+            # pawn promotion
+            if self.isPawnPromotion(dest_coord):
+                self.pawnPromote()
+
             # capture
             dest_piece = next((piece for piece in ALIVE_PIECES if piece.coord == dest_coord), None)
             if dest_piece is not None:
@@ -277,9 +302,14 @@ class Piece(pygame.sprite.Sprite):
                 dest_piece.kill()
                 del dest_piece
 
+            # update self attribute after sucessful move
             self.coord = dest_coord
             self.rect.center = coord2Pos(dest_coord)
             self.movedStep += 1
+
+            # play sound effect after valid move
+            pygame.mixer.Sound.play(move_soundeffect)
+
             TURN = "b" if TURN == "w" else "w"
 
 
@@ -344,16 +374,47 @@ def draw_hint_dots(surf, slt_piece):
             surf.blit(circle, (500, 500))
 
 
+def restart():
+    global ALIVE_PIECES
+    global TURN
+    for piece in ALIVE_PIECES:
+        piece.kill()
+    ALIVE_PIECES = []
+    create_pieces()
+    addPieces2Group()
+    TURN = "w"
+
 
 def main():
-    # initialize pygame
     global ALIVE_PIECES
+    global RESTART_TIME
+    global RESTART
+    global INTRO
+    # initialize pygame
     pygame.init()
     clock = pygame.time.Clock()
 
     # initialize display window
     window = pygame.display.set_mode((WIDTH + UI_WIDTH, HEIGHT))
     chessboard = pygame.transform.smoothscale(pygame.image.load("Assets/cb_blue.png").convert_alpha(), (WIDTH, HEIGHT))
+
+    # sound
+    move_soundeffect = pygame.mixer.Sound("Assets/piecemove_sound.mp3")
+
+    # font
+    fontWin = pygame.font.Font("Assets/Pacifico.ttf", 100)
+    blackWinImage = fontWin.render("Black Wins", True, "grey")
+    whiteWinImage = fontWin.render("White Wins", True, "grey")
+
+    # intro
+    intro = pygame.transform.smoothscale(pygame.image.load("Assets/intro.jpeg").convert_alpha(), (WIDTH + UI_WIDTH, HEIGHT))
+    fonttitle = pygame.font.Font("Assets/Pacifico.ttf", 125)
+    fontStart = pygame.font.Font("Assets/Pacifico.ttf", 75)
+    titleImage = fonttitle.render("Pygame Chess", True, "YELLOW")
+    startImage = fontStart.render("Click to Start", True, "WHITE")
+    titlePos = (150, 50)
+    startPos = (150, HEIGHT//2 )
+    
 
     # create pieces and add to sprite group
     create_pieces()
@@ -363,66 +424,98 @@ def main():
     SLT_PIECE_ORICOORD = (0, 0)
     # game Loop
     while True:
-        for event in pygame.event.get():
-            # exit game
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
+        if INTRO == False:
+            for event in pygame.event.get():
+                # exit game
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
 
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if pygame.mouse.get_pos()[0] <= WIDTH:
-                    mouseCoord = get_closestCoord(pygame.mouse.get_pos())
-                    # get the selected piece instance if it exists
-                    SLT_PIECE = get_selected_piece(mouseCoord)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if pygame.mouse.get_pos()[0] <= WIDTH:
+                        mouseCoord = get_closestCoord(pygame.mouse.get_pos())
+                        # get the selected piece instance if it exists
+                        SLT_PIECE = get_selected_piece(mouseCoord)
 
-                    # record the selected piece coordinate if it exists
+                        # record the selected piece coordinate if it exists
+                        if SLT_PIECE is not None:
+                            SLT_PIECE.update_piece(SLT_PIECE_ORICOORD, move_soundeffect)
+                            SLT_PIECE_ORICOORD = mouseCoord
+                        else:
+                            SLT_PIECE_ORICOORD = None
+
+                    elif restartRect.collidepoint(pygame.mouse.get_pos()):
+                        restart()
+
+                elif event.type == pygame.MOUSEBUTTONUP:
                     if SLT_PIECE is not None:
-                        SLT_PIECE.update_piece(SLT_PIECE_ORICOORD)
-                        SLT_PIECE_ORICOORD = mouseCoord
-                    else:
-                        SLT_PIECE_ORICOORD = None
-                elif restartRect.collidepoint(pygame.mouse.get_pos()):
-                    print("restart")
-                    for piece in ALIVE_PIECES:
-                        piece.kill()
-                    ALIVE_PIECES = []
-                    create_pieces()
-                    addPieces2Group()
+                        # update the piece attributes after a piece is dropped
+                        SLT_PIECE.update_piece(SLT_PIECE_ORICOORD, move_soundeffect)
+                    SLT_PIECE = None  # reset
 
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if SLT_PIECE is not None:
-                    # update the piece attributes after a piece is dropped
-                    SLT_PIECE.update_piece(SLT_PIECE_ORICOORD)
-                SLT_PIECE = None  # reset
+            # drag the selected piece
+            if SLT_PIECE is not None:
+                SLT_PIECE.rect.center = pygame.mouse.get_pos()
 
-        # drag the selected piece
-        if SLT_PIECE is not None:
-            SLT_PIECE.rect.center = pygame.mouse.get_pos()
+            # draw chessboard
+            window.blit(chessboard, (0, 0))
 
-        # drawing, wrong order may cause some surfaces being blocked
-        window.blit(chessboard, (0, 0))
+            # draw hint dots
+            if SLT_PIECE is not None:
+                for coord in SLT_PIECE.viableMove:
+                    radius = 25
+                    circle = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+                    pygame.draw.circle(circle, (150, 150, 150, 128), (radius, radius), radius)
+                    window.blit(circle, (coord2Pos(coord)[0]-PIECE_WIDTH/4, coord2Pos(coord)[1]-PIECE_HEIGHT/4))
+            # draw ui
+            fontui = pygame.font.Font("Assets/Pacifico.ttf", 50)
+            ui = pygame.transform.smoothscale(pygame.image.load("Assets/UI.png").convert_alpha(), (UI_WIDTH, HEIGHT))
+            window.blit(ui, (WIDTH, 0))
+            turnText = "White" if TURN == "w" else "Black"
+            textImage = fontui.render(turnText, True, turnText)
+            window.blit(textImage, (WIDTH + UI_WIDTH//2 - 70, 50))
 
-        if SLT_PIECE is not None:
-            for coord in SLT_PIECE.viableMove:
-                radius = 25
-                circle = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
-                pygame.draw.circle(circle, (150, 150, 150, 128), (radius, radius), radius)
-                window.blit(circle, (coord2Pos(coord)[0]-PIECE_WIDTH/4, coord2Pos(coord)[1]-PIECE_HEIGHT/4))
-        # draw ui
-        ui = pygame.transform.smoothscale(pygame.image.load("Assets/UI.png").convert_alpha(), (UI_WIDTH, HEIGHT))
-        window.blit(ui, (WIDTH, 0))
-        turnText = "White" if TURN == "w" else "Black"
-        font = pygame.font.Font("Assets/Pacifico.ttf", 50)
-        textImage = font.render(turnText, True, turnText)
-        window.blit(textImage, (WIDTH + UI_WIDTH//2 - 70, 50))
+            restartImage = fontui.render("Restart", True, "Black")
+            restartRect = restartImage.get_rect(topleft=(WIDTH + UI_WIDTH//2 - 70, HEIGHT - 200))
+            window.blit(restartImage, (WIDTH + UI_WIDTH//2 - 70, HEIGHT - 200))
 
-        restartImage = font.render("Restart", True, "Black")
-        restartRect = restartImage.get_rect(topleft = (WIDTH + UI_WIDTH//2 - 70, HEIGHT - 200))
-        window.blit(restartImage, (WIDTH + UI_WIDTH//2 - 70, HEIGHT - 200))
-        print(len(ALIVE_PIECES))
-        PIECE_GROUP.draw(window)
-        pygame.display.update()
-        clock.tick(FPS)
+            # draw piece
+            PIECE_GROUP.draw(window)
+
+            # draw win condition
+            bk = next((piece for piece in ALIVE_PIECES if piece.side == "b" and piece.pieceType == "k"), None)
+            wk = next((piece for piece in ALIVE_PIECES if piece.side == "w" and piece.pieceType == "k"), None)
+            if bk == None:
+                RESTART = True
+                window.blit(whiteWinImage, (UI_WIDTH//2, HEIGHT//2 - 100))
+            if wk == None:
+                RESTART = True
+                window.blit(blackWinImage, (UI_WIDTH//2, HEIGHT//2 - 100))
+            if RESTART:
+                RESTART_TIME += 1
+            if RESTART_TIME == 60:
+                RESTART = False
+                RESTART_TIME = 0
+                restart()
+
+            pygame.display.update()
+            clock.tick(FPS)
+
+        else:# play intro screen
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    INTRO = False
+
+            window.blit(intro, (0,0))
+            window.blit(titleImage, titlePos)
+            window.blit(startImage, startPos)
+            pygame.display.update()
+            clock.tick(FPS)
+                    
 
 
 if __name__ == "__main__":
