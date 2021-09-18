@@ -223,8 +223,8 @@ class Piece(pygame.sprite.Sprite):
                 return True
         return False
 
-    def pawnPromote(self, promote2):
-        self.pieceType = promote2
+    def pawnPromote(self):
+        self.pieceType = "q"
         if self.side == "w":
             self.image = pygame.transform.smoothscale(pygame.image.load("Assets/piece/wq.png").convert_alpha(), (cfg.PIECE_WIDTH, cfg.PIECE_HEIGHT))
         else:
@@ -254,13 +254,7 @@ class Piece(pygame.sprite.Sprite):
         else:
             # pawn promotion
             if self.isPawnPromotion(dest_coord):
-                promote2 = None
-                while True:
-                    promote2 = self.promtPawnPromote()
-                    if promote2 is not None:
-                        break
-
-                self.pawnPromote(promote2)
+                self.pawnPromote()
 
             # capture
             dest_piece = next((piece for piece in cfg.ALIVE_PIECES if piece.coord == dest_coord), None)
