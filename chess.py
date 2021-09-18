@@ -1,7 +1,8 @@
 import pygame
+import cfg
+from piece import Piece
 from sys import exit
-from math import sqrt
-
+from util import get_closestCoord, get_selected_piece, coord2Pos
 # Coordinate system
 """Top left square coordinate: (0,0), bottom right square: coordinate (7,7), right direction: x-axis, down direction: y-axis"""
 """To interept the coordinate tuple, (x, y) 0th index is the x coordinate, 1th index is the y coordinate"""
@@ -11,403 +12,16 @@ from math import sqrt
 """side: "w" = white ; "b" = black"""
 """piece type: "r" = rook; "n" = knight; "b" = bishop; "q" = queen; "k" = king; "p" = pawn"""
 
-# GLOBAL CONSTANT
-WIDTH, HEIGHT = 800, 800
-UI_WIDTH = 400
-PIECE_WIDTH, PIECE_HEIGHT = 100, 100
-BOARD_LENGTH = 8
-FPS = 60
-
-CHESSBOARD_INIT3 = [
-    ["br", "bn", "bb", "bq", "bk", "bb", "bn", "br"],
-    ["bp", "bp", "bp", "bp", "bp", "bp", "bp", "bp"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"],
-    ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]
-]
-
-CHESSBOARD_INIT = [
-    ["br",  "o",  "o",  "o",  "bk",  "o",  "o",  "br"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["wr",  "o",  "o",  "o",  "wk",  "o",  "o",  "wr"]
-]
-
-# Global variables
-INTRO = True
-ALIVE_PIECES = []  # list of alive piece instances
-PIECE_GROUP = pygame.sprite.Group()  # piece sprite group
-TURN = "w"
-RESTART = False
-RESTART_TIME = 0
-CHECKED = False
-
-
-class Piece(pygame.sprite.Sprite):
-
-    def __init__(self, side, pieceType, coord):
-        super().__init__()
-        # constant attribute
-        self.side = side  # "w" or "b"
-        self.pieceType = pieceType  # "r", "n", "b", "q", "k" or "p"
-        self.image = pygame.transform.smoothscale(pygame.image.load("Assets/piece/" + side + pieceType + ".png").convert_alpha(), (PIECE_WIDTH, PIECE_HEIGHT))
-
-        # variable attribute
-        self.coord = coord  # (0,0), (3,4), (7,7), ...
-        self.movedStep = 0  # 1, 2, 3, 4, ...
-        self.viableMove = self.get_viableMove()  # [(0,0), (1,1), (4,7), (7,7), ...]
-        self.rect = self.image.get_rect(center=coord2Pos(coord))
-
-    def check_equal(self, other):
-        if not isinstance(other, Piece):
-            # don't attempt to compare against unrelated types
-            return NotImplemented
-
-        return self.side == other.side and self.pieceType == other.pieceType \
-            and self.coord == other.coord and self.movedStep == other.movedStep \
-            and self.viableMove == other.viableMove
-
-    def get_viableMove(self):
-        """take in self instance, return a list of viable moves"""
-        """self instance-> a list of tuples contaning coordinates """
-
-        if self.pieceType == "r":
-            return self.get_viableMove_rook()
-        if self.pieceType == "n":
-            return self.get_viableMove_knight()
-        if self.pieceType == "b":
-            return self.get_viableMove_bishop()
-        if self.pieceType == "q":
-            return self.get_viableMove_queen()
-        if self.pieceType == "k":
-            return self.get_viableMove_king()
-        if self.pieceType == "p":
-            return self.get_viableMove_pawn()
-
-    def get_viableMove_rook(self):
-        """take self instance as input, return a list of tuple of viable move of rook"""
-        occupied_coord = [piece.coord for piece in ALIVE_PIECES if piece.coord != self.coord]
-        viableMove = []
-        # tuple is not mutable, use list instead
-        up_obst, down_obst, left_obst, right_obst = list(self.coord), list(self.coord), list(self.coord), list(self.coord)
-        # finding obstacle's coordinates
-        while True:
-            if tuple(up_obst) in occupied_coord or up_obst[1] <= 0:
-                break
-            up_obst[1] -= 1
-            viableMove.append(tuple(up_obst))  # append viable move
-
-        while True:
-            if tuple(down_obst) in occupied_coord or down_obst[1] >= 7:
-                break
-            down_obst[1] += 1
-            viableMove.append(tuple(down_obst))
-
-        while True:
-            if tuple(left_obst) in occupied_coord or left_obst[0] <= 0:
-                break
-            left_obst[0] -= 1
-            viableMove.append(tuple(left_obst))
-
-        while True:
-            if tuple(right_obst) in occupied_coord or right_obst[0] >= 7:
-                break
-            right_obst[0] += 1
-            viableMove.append(tuple(right_obst))
-
-        # delete the intersection of two set, remove all the viableMove that will capture allies piece
-        allies_coord = [piece.coord for piece in ALIVE_PIECES if (piece.side == self.side and piece.coord != self.coord)]
-        viableMove = list(set(viableMove) - set(allies_coord))
-
-        return viableMove
-
-    def get_viableMove_knight(self):
-
-        a = (self.coord[0] - 1, self.coord[1] - 2)
-        b = (self.coord[0] + 1, self.coord[1] - 2)
-        c = (self.coord[0] + 2, self.coord[1] + 1)
-        d = (self.coord[0] + 2, self.coord[1] - 1)
-        e = (self.coord[0] + 1, self.coord[1] + 2)
-        f = (self.coord[0] - 1, self.coord[1] + 2)
-        g = (self.coord[0] - 2, self.coord[1] + 1)
-        h = (self.coord[0] - 2, self.coord[1] - 1)
-
-        viableMove = [a, b, c, d, e, f, g, h]
-
-        # delete out of bound move
-        for move in viableMove[:]:  # make a copy of viableMove list to avoid unexpected behaviour
-            if move[0] < 0 or move[0] > 7 or move[1] < 0 or move[1] > 7:  # 7 is max coord
-                viableMove.remove(move)
-
-        # delete move that will capture allies piece
-        allies_coord = [piece.coord for piece in ALIVE_PIECES if (piece.side == self.side and piece.coord != self.coord)]
-        viableMove = list(set(viableMove) - set(allies_coord))
-
-        return viableMove
-
-    def get_viableMove_bishop(self):
-        occupied_coord = [piece.coord for piece in ALIVE_PIECES if piece.coord != self.coord]
-
-        viableMove = []
-        # tuple is not mutable, use list instead
-        topleft_obst, topright_obst, botleft_obst, botright_obst = list(self.coord), list(self.coord), list(self.coord), list(self.coord)
-        # finding obstacle's coordinates
-        while True:
-            if tuple(topleft_obst) in occupied_coord or topleft_obst[0] <= 0 or topleft_obst[1] <= 0:
-                break
-            topleft_obst[0] -= 1
-            topleft_obst[1] -= 1
-            viableMove.append(tuple(topleft_obst))  # append viable move
-
-        while True:
-            if tuple(topright_obst) in occupied_coord or topright_obst[0] >= 7 or topright_obst[1] <= 0:
-                break
-            topright_obst[0] += 1
-            topright_obst[1] -= 1
-
-            viableMove.append(tuple(topright_obst))
-
-        while True:
-            if tuple(botleft_obst) in occupied_coord or botleft_obst[0] <= 0 or botleft_obst[1] >= 7:
-                break
-            botleft_obst[0] -= 1
-            botleft_obst[1] += 1
-
-            viableMove.append(tuple(botleft_obst))
-
-        while True:
-            if tuple(botright_obst) in occupied_coord or botright_obst[0] >= 7 or botright_obst[1] >= 7:
-                break
-            botright_obst[0] += 1
-            botright_obst[1] += 1
-            viableMove.append(tuple(botright_obst))
-
-        # delete the intersection of two set, remove all the viableMove that will capture allies piece
-        allies_coord = [piece.coord for piece in ALIVE_PIECES if (piece.side == self.side and piece.coord != self.coord)]
-        viableMove = list(set(viableMove) - set(allies_coord))
-
-        return viableMove
-
-    def get_viableMove_queen(self):
-        # queen's viable moves is just rook plus bishop
-        return self.get_viableMove_bishop() + self.get_viableMove_rook()
-
-    def get_viableMove_king(self):
-        a = (self.coord[0] - 1, self.coord[1] - 1)  # top left, cw
-        b = (self.coord[0], self.coord[1] - 1)  # top
-        c = (self.coord[0] + 1, self.coord[1] - 1)  # topright
-        d = (self.coord[0] + 1, self.coord[1])  # right
-        e = (self.coord[0] + 1, self.coord[1] + 1)  # botright
-        f = (self.coord[0], self.coord[1] + 1)  # bot
-        g = (self.coord[0] - 1, self.coord[1] + 1)  # botleft
-        h = (self.coord[0] - 1, self.coord[1])  # left
-
-        viableMove = [a, b, c, d, e, f, g, h]
-        # delete out of bound move
-        for move in viableMove[:]:  # make a copy of viableMove list to avoid unexpected behaviour
-            if move[0] < 0 or move[0] > 7 or move[1] < 0 or move[1] > 7:  # 7 is max coord
-                viableMove.remove(move)
-
-        # delete move that will capture allies piece
-        allies_coord = [piece.coord for piece in ALIVE_PIECES if (piece.side == self.side and piece.coord != self.coord)]
-        viableMove = list(set(viableMove) - set(allies_coord))
-
-        return viableMove
-
-    def get_viableMove_pawn(self):
-        if self.side == "b":
-            viableMove = []
-            alive_pieces = [piece.coord for piece in ALIVE_PIECES]
-            enermy_pieces = [piece.coord for piece in ALIVE_PIECES if piece.side == "w"]
-
-            # diagonal capture
-            if (self.coord[0] - 1, self.coord[1] + 1) in enermy_pieces:
-                viableMove.append((self.coord[0] - 1, self.coord[1] + 1))
-            if (self.coord[0] + 1, self.coord[1] + 1) in enermy_pieces:
-                viableMove.append((self.coord[0] + 1, self.coord[1] + 1))
-
-            # first move
-            if self.movedStep == 0 and (self.coord[0], self.coord[1] + 1) not in alive_pieces and (self.coord[0], self.coord[1] + 2) not in alive_pieces:
-                viableMove.append((self.coord[0], self.coord[1] + 2))
-
-            # regular move
-            if self.coord[1] != 7 and (self.coord[0], self.coord[1] + 1) not in alive_pieces:
-                viableMove.append((self.coord[0], self.coord[1] + 1))
-
-            return viableMove
-
-        else:  # side == "w"
-            viableMove = []
-            alive_pieces = [piece.coord for piece in ALIVE_PIECES]
-            enermy_pieces = [piece.coord for piece in ALIVE_PIECES if piece.side == "b"]
-
-            # diagonal capture
-            if (self.coord[0] - 1, self.coord[1] - 1) in enermy_pieces:
-                viableMove.append((self.coord[0] - 1, self.coord[1] - 1))
-            if (self.coord[0] + 1, self.coord[1] - 1) in enermy_pieces:
-                viableMove.append((self.coord[0] + 1, self.coord[1] - 1))
-
-            # first move
-            if self.movedStep == 0 and (self.coord[0], self.coord[1] - 1) not in alive_pieces and (self.coord[0], self.coord[1] - 2) not in alive_pieces:
-                viableMove.append((self.coord[0], self.coord[1] - 2))
-
-            # regular move
-            if self.coord[1] != 0 and (self.coord[0], self.coord[1] - 1) not in alive_pieces:
-                viableMove.append((self.coord[0], self.coord[1] - 1))
-
-            return viableMove
-
-    def isPawnPromotion(self, dest_coord):
-        if self.pieceType == "p":
-            if dest_coord[1] == 0 and self.side == "w":
-                return True
-            if dest_coord[1] == 7 and self.side == "b":
-                return True
-        return False
-
-    def pawnPromote(self):
-        self.pieceType = "q"
-        if self.side == "w":
-            self.image = pygame.transform.smoothscale(pygame.image.load("Assets/piece/wq.png").convert_alpha(), (PIECE_WIDTH, PIECE_HEIGHT))
-        else:
-            self.image = pygame.transform.smoothscale(pygame.image.load("Assets/piece/bq.png").convert_alpha(), (PIECE_WIDTH, PIECE_HEIGHT))
-        self.rect = self.image.get_rect(center=coord2Pos(self.coord))
-
-    def update_piece(self, ori_coord, move_soundeffect):
-        """take in self instance, update all the attributes if a move is made, no return"""
-        global TURN
-        global CHECKED
-        dest_coord = get_closestCoord(pygame.mouse.get_pos())
-        # update viable move no matter moved or not to show hint dots correctly
-        self.viableMove = self.get_viableMove()
-
-        # check if the piece moved or not
-        if self.coord == dest_coord:
-            # reset the piece's rect position if no move is made
-            self.rect.center = coord2Pos(dest_coord)
-            return
-
-        # check move is in list of viableMove:
-        elif dest_coord not in self.viableMove or self.side != TURN:
-            self.coord = ori_coord
-            self.rect.center = coord2Pos(ori_coord)
-            return
-
-        # valid move
-        else:
-            # pawn promotion
-            if self.isPawnPromotion(dest_coord):
-                self.pawnPromote()
-
-            # capture
-            dest_piece = next((piece for piece in ALIVE_PIECES if piece.coord == dest_coord), None)
-            if dest_piece is not None:
-                ALIVE_PIECES.remove(dest_piece)
-                dest_piece.kill()
-                del dest_piece
-
-            # update self attribute after sucessful move
-            self.coord = dest_coord
-            self.rect.center = coord2Pos(dest_coord)
-            self.movedStep += 1
-
-            # play sound effect after valid move
-            pygame.mixer.Sound.play(move_soundeffect)
-
-            TURN = "b" if TURN == "w" else "w"
-
-
-def coord2Pos(coord):
-    """convert coordinate to pixel position e.g.(1,2) -> (150,250)"""
-    """1 tuple of coordinate -> 1 tuple of pixel postition"""
-    xPos = PIECE_WIDTH//2 + coord[0] * PIECE_WIDTH
-    yPos = PIECE_HEIGHT//2 + coord[1] * PIECE_HEIGHT
-    return (xPos, yPos)
-
-
-def get_closestCoord(mousePos):
-    """get the x, y coordinate of square with that is closest to cursor"""
-    """self, mouse position -> a tuple containing coordinates"""
-    mx, my = mousePos
-    # create a 2D list of tuple, each tuple contain coordinates of valid position
-    VALID_POS = [[coord2Pos((x, y)) for x in range(BOARD_LENGTH)] for y in range(BOARD_LENGTH)]
-    # create a 2D list of float, each float is distance from the mouse position
-    dist = [[sqrt((pos[0]-mx)**2 + (pos[1]-my)**2) for pos in row] for row in VALID_POS]
-
-    # get the x, y coordinate of square with that is closest to cursor
-    dist_rowsums = [sum(row) for row in dist]
-    y = dist_rowsums.index(min(dist_rowsums))
-    x = dist[y].index(min(dist[y]))
-
-    return (x, y)
-
-
-def get_selected_piece(coord):
-    """return the piece instance if cursor sit on a square that contain a piece, otherwise return None(empty square)"""
-    for piece in ALIVE_PIECES:
-        if piece.coord == coord:
-            return piece
-    return None
-
-
-def create_pieces():
-    """Loop through the BOARD and create a instance for each piece encounter and append ALIVE_PIECES"""
-    for y, rows in enumerate(CHESSBOARD_INIT):
-        for x, sq in enumerate(rows):  # sq: "wp", "bk" etc.
-            if sq != "o":  # square is not open
-                side = sq[0]
-                pieceType = sq[1]
-                ALIVE_PIECES.append(Piece(side, pieceType, (x, y)))  # init Piece instance with with side, pieceType, coord
-
-
-def addPieces2Group():
-    """add all pieces in ALIVE_PIECE to sprite group"""
-    for piece in ALIVE_PIECES:
-        PIECE_GROUP.add(piece)
-
-
-def draw_hint_dots(surf, slt_piece):
-    """Draw hint dots on viable move position of selected piece"""
-    # check selected piece exists
-    if slt_piece is not None:
-
-        for coord in slt_piece.viableMove:
-            radius = 30
-            circle = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
-            pygame.draw.circle(circle, (150, 150, 150, 128), coord2Pos(coord), radius)
-            surf.blit(circle, (500, 500))
-
-
-def restart():
-    global ALIVE_PIECES
-    global TURN
-    for piece in ALIVE_PIECES:
-        piece.kill()
-    ALIVE_PIECES = []
-    create_pieces()
-    addPieces2Group()
-    TURN = "w"
-
 
 def main():
-    global ALIVE_PIECES
-    global RESTART_TIME
-    global RESTART
-    global INTRO
+
     # initialize pygame
     pygame.init()
     clock = pygame.time.Clock()
 
     # initialize display window
-    window = pygame.display.set_mode((WIDTH + UI_WIDTH, HEIGHT))
-    chessboard = pygame.transform.smoothscale(pygame.image.load("Assets/cb_blue.png").convert_alpha(), (WIDTH, HEIGHT))
+    window = pygame.display.set_mode((cfg.WIDTH + cfg.UI_WIDTH, cfg.HEIGHT))
+    chessboard = pygame.transform.smoothscale(pygame.image.load("Assets/cb_blue.png").convert_alpha(), (cfg.WIDTH, cfg.HEIGHT))
 
     # sound
     move_soundeffect = pygame.mixer.Sound("Assets/piecemove_sound.mp3")
@@ -418,14 +32,13 @@ def main():
     whiteWinImage = fontWin.render("White Wins", True, "grey")
 
     # intro
-    intro = pygame.transform.smoothscale(pygame.image.load("Assets/intro.jpeg").convert_alpha(), (WIDTH + UI_WIDTH, HEIGHT))
+    introImage = pygame.transform.smoothscale(pygame.image.load("Assets/INTRO.jpeg").convert_alpha(), (cfg.WIDTH + cfg.UI_WIDTH, cfg.HEIGHT))
     fonttitle = pygame.font.Font("Assets/Pacifico.ttf", 125)
     fontStart = pygame.font.Font("Assets/Pacifico.ttf", 75)
     titleImage = fonttitle.render("Pygame Chess", True, "YELLOW")
     startImage = fontStart.render("Click to Start", True, "WHITE")
     titlePos = (150, 50)
-    startPos = (150, HEIGHT//2 )
-    
+    startPos = (150, cfg.HEIGHT//2)
 
     # create pieces and add to sprite group
     create_pieces()
@@ -435,7 +48,7 @@ def main():
     SLT_PIECE_ORICOORD = (0, 0)
     # game Loop
     while True:
-        if INTRO == False:
+        if cfg.INTRO == False:
             for event in pygame.event.get():
                 # exit game
                 if event.type == pygame.QUIT:
@@ -443,7 +56,7 @@ def main():
                     exit()
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if pygame.mouse.get_pos()[0] <= WIDTH:
+                    if pygame.mouse.get_pos()[0] <= cfg.WIDTH:
                         mouseCoord = get_closestCoord(pygame.mouse.get_pos())
                         # get the selected piece instance if it exists
                         SLT_PIECE = get_selected_piece(mouseCoord)
@@ -477,56 +90,80 @@ def main():
                     radius = 25
                     circle = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
                     pygame.draw.circle(circle, (150, 150, 150, 128), (radius, radius), radius)
-                    window.blit(circle, (coord2Pos(coord)[0]-PIECE_WIDTH/4, coord2Pos(coord)[1]-PIECE_HEIGHT/4))
+                    window.blit(circle, (coord2Pos(coord)[0]-cfg.PIECE_WIDTH//4, coord2Pos(coord)[1]-cfg.PIECE_HEIGHT//4))
             # draw ui
             fontui = pygame.font.Font("Assets/Pacifico.ttf", 50)
-            ui = pygame.transform.smoothscale(pygame.image.load("Assets/UI.png").convert_alpha(), (UI_WIDTH, HEIGHT))
-            window.blit(ui, (WIDTH, 0))
-            turnText = "White" if TURN == "w" else "Black"
+            ui = pygame.transform.smoothscale(pygame.image.load("Assets/UI.png").convert_alpha(), (cfg.UI_WIDTH, cfg.HEIGHT))
+            window.blit(ui, (cfg.WIDTH, 0))
+            turnText = "White" if cfg.TURN == "w" else "Black"
             textImage = fontui.render(turnText, True, turnText)
-            window.blit(textImage, (WIDTH + UI_WIDTH//2 - 70, 50))
+            window.blit(textImage, (cfg.WIDTH + cfg.UI_WIDTH//2 - 70, 50))
 
             restartImage = fontui.render("Restart", True, "Black")
-            restartRect = restartImage.get_rect(topleft=(WIDTH + UI_WIDTH//2 - 70, HEIGHT - 200))
-            window.blit(restartImage, (WIDTH + UI_WIDTH//2 - 70, HEIGHT - 200))
+            restartRect = restartImage.get_rect(topleft=(cfg.WIDTH + cfg.UI_WIDTH//2 - 70, cfg.HEIGHT - 200))
+            window.blit(restartImage, (cfg.WIDTH + cfg.UI_WIDTH//2 - 70, cfg.HEIGHT - 200))
 
             # draw piece
-            PIECE_GROUP.draw(window)
+            cfg.PIECE_GROUP.draw(window)
 
             # draw win condition
-            bk = next((piece for piece in ALIVE_PIECES if piece.side == "b" and piece.pieceType == "k"), None)
-            wk = next((piece for piece in ALIVE_PIECES if piece.side == "w" and piece.pieceType == "k"), None)
+            bk = next((piece for piece in cfg.ALIVE_PIECES if piece.side == "b" and piece.pieceType == "k"), None)
+            wk = next((piece for piece in cfg.ALIVE_PIECES if piece.side == "w" and piece.pieceType == "k"), None)
             if bk == None:
-                RESTART = True
-                window.blit(whiteWinImage, (UI_WIDTH//2, HEIGHT//2 - 100))
+                cfg.RESTART = True
+                window.blit(whiteWinImage, (cfg.UI_WIDTH//2, cfg.HEIGHT//2 - 100))
             if wk == None:
-                RESTART = True
-                window.blit(blackWinImage, (UI_WIDTH//2, HEIGHT//2 - 100))
-            if RESTART:
-                RESTART_TIME += 1
-            if RESTART_TIME == 60:
-                RESTART = False
-                RESTART_TIME = 0
+                cfg.RESTART = True
+                window.blit(blackWinImage, (cfg.UI_WIDTH//2, cfg.HEIGHT//2 - 100))
+            if cfg.RESTART:
+                cfg.RESTART_TIME += 1
+            if cfg.RESTART_TIME == 60:
+                cfg.RESTART = False
+                cfg.RESTART_TIME = 0
                 restart()
 
             pygame.display.update()
-            clock.tick(FPS)
+            clock.tick(cfg.FPS)
 
-        else:# play intro screen
+        else:  # play cfg.INTRO screen
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     exit()
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    INTRO = False
+                    cfg.INTRO = False
 
-            window.blit(intro, (0,0))
+            window.blit(introImage, (0, 0))
             window.blit(titleImage, titlePos)
             window.blit(startImage, startPos)
             pygame.display.update()
-            clock.tick(FPS)
-                    
+            clock.tick(cfg.FPS)
+
+
+def create_pieces():
+    """Loop through the BOARD and create a instance for each piece encounter and append cfg.ALIVE_PIECES"""
+    for y, rows in enumerate(cfg.CHESSBOARD_INIT):
+        for x, sq in enumerate(rows):  # sq: "wp", "bk" etc.
+            if sq != "o":  # square is not open
+                side = sq[0]
+                pieceType = sq[1]
+                cfg.ALIVE_PIECES.append(Piece(side, pieceType, (x, y)))  # init Piece instance with with side, pieceType, coord
+
+
+def addPieces2Group():
+    """add all pieces in ALIVE_PIECE to sprite group"""
+    for piece in cfg.ALIVE_PIECES:
+        cfg.PIECE_GROUP.add(piece)
+
+
+def restart():
+    for piece in cfg.ALIVE_PIECES:
+        piece.kill()
+    cfg.ALIVE_PIECES = []
+    create_pieces()
+    addPieces2Group()
+    cfg.TURN = "w"
 
 
 if __name__ == "__main__":
