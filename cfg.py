@@ -17,16 +17,6 @@ CHESSBOARD_INIT = [
     ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]
 ]
 
-CHESSBOARD_INIT3 = [
-    ["br",  "o",  "o",  "o",  "bk",  "o",  "o",  "br"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["o",  "o",  "o",  "o",  "o",  "o",  "o",  "o"],
-    ["wr",  "o",  "o",  "o",  "wk",  "o",  "o",  "wr"]
-]
 
 # Global variables
 INTRO = True
